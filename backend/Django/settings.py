@@ -27,23 +27,34 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+#**/ Allow React frontend to access Django backend  
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173"
+]
+
 
 # Application definition
 
 INSTALLED_APPS = [
+    'whitenoise.runserver_nostatic', #**/ WhiteNoise for serving static files in development
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "api",
+
+    "corsheaders", #**/ CORS headers to allow cross-origin requests
+    "rest_framework", #**/ Django REST Framework for building APIs
+    "api", #**/ Custom app for the API
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware', #**/ WhiteNoise middleware to serve static files in production
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "corsheaders.middleware.CorsMiddleware", #**/ CORS middleware to handle cross-origin requests
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -116,6 +127,19 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+
+#**/ specify the directories where static files are present in our project
+STATICFILES_DIRS = [BASE_DIR / "backend/api/static"]
+
+#**/ WhiteNoise configuration to serve static files in production
+STATIC_ROOT = BASE_DIR / "backend/staticfiles"
+
+#**/ WhiteNoise storage backend to compress and manage static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# media files
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "backend/media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
