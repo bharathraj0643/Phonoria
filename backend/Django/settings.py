@@ -9,28 +9,37 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+import os #**/ os module to handle environment variables
+import environ #**/ django-environ to manage environment variables
 
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+#**/ Initialize django-environ to read environment variables from .env file
+env = environ.Env(DEBUG=(bool, False))
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-7hr^tp)gf!no2spazowf%+e=8@fc1_09i39tyi&do6&r)!7uyv"
+#**/ SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = env("SECRET_KEY",)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+#**/ SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env("DEBUG")
 
-ALLOWED_HOSTS = []
+#**/ Hosts/domain names that are valid, deployed-backend-url
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 #**/ Allow React frontend to access Django backend  
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173"
 ]
+
+#**/ CSRF trusted origins to allow cross-origin requests from the deplaoyed backend-url
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 
 # Application definition
@@ -84,11 +93,9 @@ WSGI_APPLICATION = "Django.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+#**/ Using django-environ to read database configuration from environment variables
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": env.db()
 }
 
 
@@ -128,18 +135,24 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
-#**/ specify the directories where static files are present in our project
-STATICFILES_DIRS = [BASE_DIR / "backend/api/static"]
+# #**/ specify the directories where static files are present in our project
+# STATICFILES_DIRS = [BASE_DIR / "backend/api/static"]
 
-#**/ WhiteNoise configuration to serve static files in production
-STATIC_ROOT = BASE_DIR / "backend/staticfiles"
 
 #**/ WhiteNoise storage backend to compress and manage static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+if DEBUG:
+    #**/ WhiteNoise configuration to serve static files in development
+    STATIC_ROOT = BASE_DIR / "backend/staticfiles"
+    MEDIA_ROOT = BASE_DIR / "backend/media"
+else:
+    #**/ WhiteNoise configuration to serve static files in production
+    STATIC_ROOT = BASE_DIR / "staticfiles"
+    MEDIA_ROOT = BASE_DIR / "media"
+
 # media files
 MEDIA_URL = "media/"
-MEDIA_ROOT = BASE_DIR / "backend/media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
