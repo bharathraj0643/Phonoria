@@ -25,7 +25,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 #**/ SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = env("SECRET_KEY",)
+SECRET_KEY = env("SECRET_KEY")
 
 #**/ SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env("DEBUG")
@@ -34,9 +34,7 @@ DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 #**/ Allow React frontend to access Django backend  
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173"
-]
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
 #**/ CSRF trusted origins to allow cross-origin requests from the deplaoyed backend-url
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
