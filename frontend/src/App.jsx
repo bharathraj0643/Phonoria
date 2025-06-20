@@ -7,7 +7,6 @@ import Card from './components/Card'
 import { ENV } from './constants/env'
 
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
