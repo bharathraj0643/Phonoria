@@ -12,6 +12,7 @@ function App() {
   return (
     <>
       <h1>{ENV.API_URL}</h1>
+      <p>dynamic enviroment variable</p>
       <Card />
     </>
   )
