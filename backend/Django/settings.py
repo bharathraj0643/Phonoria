@@ -133,24 +133,25 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 
-# #**/ specify the directories where static files are present in our project
-# STATICFILES_DIRS = [BASE_DIR / "backend/api/static"]
-
-
 #**/ WhiteNoise storage backend to compress and manage static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
+# media files
+MEDIA_URL = "media/"
+
 if DEBUG:
+    # #**/ specify the directories where static files are present in our project
+    STATICFILES_DIRS = [os.path.join(BASE_DIR , "backend/api/static")]
     #**/ WhiteNoise configuration to serve static files in development
     STATIC_ROOT = BASE_DIR / "backend/staticfiles"
     MEDIA_ROOT = BASE_DIR / "backend/media"
 else:
+    # #**/ specify the directories where static files are present in our project
+    STATICFILES_DIRS = [os.path.join(BASE_DIR , "api/static")]
     #**/ WhiteNoise configuration to serve static files in production
     STATIC_ROOT = BASE_DIR / "staticfiles"
     MEDIA_ROOT = BASE_DIR / "media"
 
-# media files
-MEDIA_URL = "media/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
