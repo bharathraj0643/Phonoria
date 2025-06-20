@@ -9,40 +9,59 @@ https://docs.djangoproject.com/en/5.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
+import os #**/ os module to handle environment variables
+import environ #**/ django-environ to manage environment variables
 
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+#**/ Initialize django-environ to read environment variables from .env file
+env = environ.Env(DEBUG=(bool, False))
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-7hr^tp)gf!no2spazowf%+e=8@fc1_09i39tyi&do6&r)!7uyv"
+#**/ SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = env("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+#**/ SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = env("DEBUG")
 
-ALLOWED_HOSTS = []
+#**/ Hosts/domain names that are valid, deployed-backend-url
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+
+#**/ Allow React frontend to access Django backend  
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
+#**/ CSRF trusted origins to allow cross-origin requests from the deplaoyed backend-url
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 
 
 # Application definition
 
 INSTALLED_APPS = [
+    'whitenoise.runserver_nostatic', #**/ WhiteNoise for serving static files in development
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+    "corsheaders", #**/ CORS headers to allow cross-origin requests
+    "rest_framework", #**/ Django REST Framework for building APIs
+    "api", #**/ Custom app for the API
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    'whitenoise.middleware.WhiteNoiseMiddleware', #**/ WhiteNoise middleware to serve static files in production
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
+    "corsheaders.middleware.CorsMiddleware", #**/ CORS middleware to handle cross-origin requests
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -72,11 +91,9 @@ WSGI_APPLICATION = "Django.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+#**/ Using django-environ to read database configuration from environment variables
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": env.db()
 }
 
 
@@ -115,6 +132,26 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "static/"
+
+#**/ WhiteNoise storage backend to compress and manage static files
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# media files
+MEDIA_URL = "media/"
+
+if DEBUG:
+    # #**/ specify the directories where static files are present in our project
+    STATICFILES_DIRS = [os.path.join(BASE_DIR , "backend/api/static")]
+    #**/ WhiteNoise configuration to serve static files in development
+    STATIC_ROOT = BASE_DIR / "backend/staticfiles"
+    MEDIA_ROOT = BASE_DIR / "backend/media"
+else:
+    # #**/ specify the directories where static files are present in our project
+    STATICFILES_DIRS = [os.path.join(BASE_DIR , "api/static")]
+    #**/ WhiteNoise configuration to serve static files in production
+    STATIC_ROOT = BASE_DIR / "staticfiles"
+    MEDIA_ROOT = BASE_DIR / "media"
+
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
