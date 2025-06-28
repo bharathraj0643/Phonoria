@@ -1,3 +1,3 @@
 # Ecommerce
 
-Live Server - [👉 Click to view deployed website 🌐](https://phonoria-backend.fly.dev/)
+Live Server - [👉 Click to view deployed website 🌐](https://phonoria.vercel.app/)
