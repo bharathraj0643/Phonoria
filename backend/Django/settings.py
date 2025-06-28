@@ -18,8 +18,11 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 #**/ Initialize django-environ to read environment variables from .env file
-env = environ.Env(DEBUG=(bool, False))
+env = environ.Env(DEBUG=(bool, False),MACHINE_ENV=(str, 'production'))  #**/ Set default values for DEBUG and MACHINE_ENV
 environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
+
+MACHINE_ENV = env("MACHINE_ENV")
+print(MACHINE_ENV)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
@@ -50,6 +53,9 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
+    'cloudinary_storage',  #**/ For serving media files from Cloudinary
+    'cloudinary',  #**/ For image handling
 
     "corsheaders", #**/ CORS headers to allow cross-origin requests
     "rest_framework", #**/ Django REST Framework for building APIs
@@ -91,10 +97,18 @@ WSGI_APPLICATION = "Django.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-#**/ Using django-environ to read database configuration from environment variables
-DATABASES = {
-    "default": env.db()
-}
+#**/ Using django-environ to read database configuration from environment variables , dynamically set based on the machine_env
+if MACHINE_ENV == "local":
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+else:
+    DATABASES = {
+        "default": env.db()
+    }
 
 
 # Password validation
@@ -138,22 +152,35 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # media files
 MEDIA_URL = "media/"
-
-if DEBUG:
-    # #**/ specify the directories where static files are present in our project
-    STATICFILES_DIRS = [os.path.join(BASE_DIR , "backend/api/static")]
-    #**/ WhiteNoise configuration to serve static files in development
-    STATIC_ROOT = BASE_DIR / "backend/staticfiles"
-    MEDIA_ROOT = BASE_DIR / "backend/media"
+#**/ Check if the application is running in local environment or production
+if MACHINE_ENV == "local":
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 else:
-    # #**/ specify the directories where static files are present in our project
-    STATICFILES_DIRS = [os.path.join(BASE_DIR , "api/static")]
-    #**/ WhiteNoise configuration to serve static files in production
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+#**/ Check if the application is running on Fly.io
+IS_FLY = os.environ.get("FLY_APP_NAME") is not None
+
+if IS_FLY:
+    # Fly.io environment
+    STATICFILES_DIRS = [BASE_DIR / "api/static"]
     STATIC_ROOT = BASE_DIR / "staticfiles"
     MEDIA_ROOT = BASE_DIR / "media"
-
+else:
+    # Local environment
+    STATICFILES_DIRS = [BASE_DIR, "backend/api/static"]
+    STATIC_ROOT = BASE_DIR / "backend/staticfiles"
+    MEDIA_ROOT = BASE_DIR / "backend/media"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+#**/ Cloudinary configuration for media files
+#**/ Using django-environ to read Cloudinary configuration from environment variables
+CLOUDINARY_STORAGE= {
+    'CLOUD_NAME': env("CLOUDINARY_CLOUD_NAME"),
+    'API_KEY': env("CLOUDINARY_API_KEY"),
+    'API_SECRET': env("CLOUDINARY_API_SECRET"),
+}
