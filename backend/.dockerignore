@@ -3,3 +3,4 @@ fly.toml
 *.sqlite3
 venv
 credentials.txt
+fly-secrets.txt
