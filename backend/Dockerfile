@@ -22,12 +22,12 @@ RUN set -ex && \
     rm -rf /root/.cache/
 COPY . /code
 
+ENV SECRET_KEY "Slu0LzDQZBU7XZJAnIo0GeT42aEJdmouMnIxNLpJxjhgH6aVkA"
 ENV DATABASE_URL "sqlite://:memory:"
-ENV SECRET_KEY "dd6clMf7Tj83czp8B1uKbzJa6wZYCEg0Z0oZWZ7GNMr19akRrK"
+ENV MACHINE_ENV=fake
 ENV CLOUDINARY_CLOUD_NAME=fake
 ENV CLOUDINARY_API_KEY=fake
 ENV CLOUDINARY_API_SECRET=fake
-ENV MACHINE_ENV=fake
 RUN python manage.py collectstatic --noinput
 
 EXPOSE 8000
