@@ -1,6 +1,8 @@
-h5{
+.title{
     font-size: 100px;
+    color: red;
 }
-.whishlist{
-    background-color: transparent;
+#whishlist{
+    color: red;
+    background-color: greenyellow;
 }
