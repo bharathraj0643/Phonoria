@@ -1,4 +1,4 @@
-name: Notify Discord of Vercel Deployment
+name: Notify Discord of Vercel Deployment (frontend)
 
 on:
   deployment_status:
@@ -26,7 +26,14 @@ jobs:
           echo "MESSAGE=$MESSAGE" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
+      - name: Skip if branch is feat/backend
+        if: env.BRANCH == 'feat/backend'
+        run: |
+          echo "Skipping workflow for branch feat/backend"
+          exit 0
+
       - name: Send to Discord
+        if: env.BRANCH != 'feat/backend'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
