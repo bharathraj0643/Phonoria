@@ -6,3 +6,7 @@
     --phonoria-color-gold-lite: #F7EFE5;
     --phonoria-color-cream: #FFFBF5;
 }
+
+body{
+    background-color: var(--phonoria-color-cream);
+}
