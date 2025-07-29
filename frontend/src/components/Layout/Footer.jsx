@@ -5,14 +5,14 @@ import footerLogo from "/vite.svg";
 function Footer() {
   return (
     <footer className="bg-(--phonoria-color-violet)">
-      <div className="container mx-auto 2xl:max-w-7xl grid sm:grid-cols-12 gap-4 p-4">
-        <div className="sm:col-span-2 place-items-center">
+      <div className="container mx-auto 2xl:max-w-7xl grid sm:grid-cols-12 gap-4 px-10 py-4">
+        <div className="sm:col-span-2 place-items-start">
           <img src={footerLogo} alt="phonoria-footer-logo" />
         </div>
         <nav className="sm:col-span-10">
           <ul className="grid sm:grid-cols-4 grid-cols-2 gap-4">
             <li className="text-white">
-              <span className="font-semibold">Categories</span>
+              <li className="font-semibold mb-3">Categories</li>
               <ul className="text-gray-300">
                 <li>
                   <a href="">Budget phones</a>
@@ -32,7 +32,7 @@ function Footer() {
               </ul>
             </li>
             <li className="text-white">
-              <span className="font-semibold">Mobile Brands</span>
+              <li className="font-semibold mb-3">Mobile Brands</li>
               <ul className="text-gray-300">
                 <li>
                   <a href="">Samsung phones</a>
@@ -49,7 +49,7 @@ function Footer() {
               </ul>
             </li>
             <li className="text-white">
-              <span className="font-semibold">Mobile Lists</span>
+              <li className="font-semibold mb-3">Mobile Lists</li>
               <ul className="text-gray-300">
                 <li>
                   <a href="">Samsung phones</a>
@@ -66,7 +66,7 @@ function Footer() {
               </ul>
             </li>
             <li className="text-white">
-              <span className="font-semibold">Contact</span>
+              <li className="font-semibold mb-3">Contact</li>
               <ul className="text-gray-300">
                 <li>
                   <a href="">About Phonoria</a>
@@ -85,7 +85,7 @@ function Footer() {
           </ul>
         </nav>
       </div>
-      <p className="text-center text-white p-5">2025 Company</p>
+      <p className="text-center text-white p-5">2025 &copy; Company</p>
     </footer>
   );
 }
