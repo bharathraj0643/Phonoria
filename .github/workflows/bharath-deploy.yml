@@ -1,0 +1,57 @@
+name: Notify Discord of Vercel Deployment
+
+on:
+  deployment_status:
+
+jobs:
+  notify-discord:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Extract commit info
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          COMMIT_SHA="${{ github.event.deployment.sha }}"
+          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
+
+          AUTHOR=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA --jq '.commit.author.name')
+          MESSAGE=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA --jq '.commit.message')
+          BRANCH=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/branches-where-head --jq '.[0].name')
+
+          echo "AUTHOR=$AUTHOR" >> $GITHUB_ENV
+          echo "MESSAGE=$MESSAGE" >> $GITHUB_ENV
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+
+      - name: Send to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          STATUS="${{ github.event.deployment_status.state }}"
+          ENVIRONMENT="${{ github.event.deployment.environment }}"
+          URL="${{ github.event.deployment_status.environment_url }}"
+          COLOR=65280
+          EMOJI="✅"
+
+          if [ "$STATUS" != "success" ]; then
+            COLOR=16711680
+            EMOJI="❌"
+          fi
+
+          echo "{
+            \"username\": \"Vercel Bot\",
+            \"embeds\": [{
+              \"title\": \"$EMOJI Deployment: $ENVIRONMENT\",
+              \"color\": $COLOR,
+              \"description\": \"**Branch:** $BRANCH\n**Commit:** ${COMMIT_SHA:0:7}\n**Author:** $AUTHOR\n**Message:** $MESSAGE\n**URL:** $URL\",
+              \"timestamp\": \"$(date --utc +%Y-%m-%dT%H:%M:%SZ)\"
+            }]
+          }" > payload.json
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d @payload.json \
+               "$DISCORD_WEBHOOK_URL"
