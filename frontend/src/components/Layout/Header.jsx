@@ -10,7 +10,7 @@ function Header() {
     <>
       <div className="bg-(--phonoria-color-violet)">
         <header className="container mx-auto px-10 py-3 max-w-7xl ">
-          <div className="flex gap-5">
+          <div className="flex gap-5 items-center">
             <div className="flex shrink-0">
               <a href="" className=" ">
                 <img src={headerLogo} alt="sm:phonoria-header-logo" className="w-25" />
@@ -34,7 +34,7 @@ function Header() {
               </div>
             </div>
             <div className="hidden sm:flex sm:basis-1/2 justify-center w-full">
-              <input type="text" className="bg-white rounded-md w-full px-3 focus:outline-blue-300" />
+              <input type="text" className="h-7 bg-white rounded-md w-full px-3 focus:outline-blue-300" />
             </div>
             <div className="hidden sm:flex basis-1/4 justify-end gap-5 text-white">
               <div className="flex items-center gap-1">

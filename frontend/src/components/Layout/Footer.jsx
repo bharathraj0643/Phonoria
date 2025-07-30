@@ -7,8 +7,8 @@ function Footer() {
   return (
     <footer className="bg-(--phonoria-color-violet)">
       <div className="container mx-auto 2xl:max-w-7xl grid sm:grid-cols-12 gap-4 px-10 py-4">
-        <div className="sm:col-span-2 place-items-start">
-          <img src={footerLogo} alt="phonoria-footer-logo" className="w-25" />
+        <div className="sm:col-span-2 place-items-start ">
+          <img src={footerLogo} alt="phonoria-footer-logo" className="w-25 flex shrink-0" />
         </div>
         <nav className="sm:col-span-10">
           <ul className="grid sm:grid-cols-4 grid-cols-2 gap-4">
