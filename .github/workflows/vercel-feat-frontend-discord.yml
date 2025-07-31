@@ -18,13 +18,49 @@ jobs:
           COMMIT_SHA="${{ github.event.deployment.sha }}"
           echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
 
-          AUTHOR=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA --jq '.commit.author.name')
-          MESSAGE=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA --jq '.commit.message')
-          BRANCH=$(gh api repos/${{ github.repository }}/commits/$COMMIT_SHA/branches-where-head --jq '.[0].name')
+          # Try to get info from deployment payload first
+          DEPLOYMENT_REF="${{ github.event.deployment.ref }}"
+          DEPLOYMENT_DESC="${{ github.event.deployment.description }}"
+          
+          # Extract branch from deployment ref
+          BRANCH=${DEPLOYMENT_REF#refs/heads/}
+          if [ -z "$BRANCH" ] || [ "$BRANCH" = "$DEPLOYMENT_REF" ]; then
+            BRANCH="feat/frontend"  # fallback to expected branch
+          fi
+          
+          # Try to get commit info using git commands after checkout
+          if git show --format="%an" -s HEAD >/dev/null 2>&1; then
+            AUTHOR=$(git show --format="%an" -s HEAD)
+            RAW_MESSAGE=$(git show --format="%s" -s HEAD)
+          else
+            # Fallback to API if git commands fail
+            echo "Git commands failed, trying API..."
+            AUTHOR=$(gh api "repos/${{ github.repository }}/commits/${COMMIT_SHA}" --jq -r '.commit.author.name // "Unknown"' 2>/dev/null || echo "Unknown")
+            RAW_MESSAGE=$(gh api "repos/${{ github.repository }}/commits/${COMMIT_SHA}" --jq -r '.commit.message // "No message"' 2>/dev/null || echo "No message")
+          fi
+          
+          # Process the message - get first line only and truncate
+          MESSAGE=$(echo "$RAW_MESSAGE" | head -n 1 | cut -c1-72)
+          
+          # Sanitize values
+          AUTHOR=$(echo "$AUTHOR" | tr -d '\n\r' | cut -c1-50)
+          MESSAGE=$(echo "$MESSAGE" | tr -d '\n\r')
+          BRANCH=$(echo "$BRANCH" | tr -d '\n\r' | cut -c1-50)
 
           echo "AUTHOR=$AUTHOR" >> $GITHUB_ENV
-          echo "MESSAGE=$MESSAGE" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
+          echo "MESSAGE<<EOF" >> $GITHUB_ENV
+          echo "$MESSAGE" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          
+          # Debug output
+          echo "Debug info:"
+          echo "COMMIT_SHA: $COMMIT_SHA"
+          echo "DEPLOYMENT_REF: $DEPLOYMENT_REF" 
+          echo "DEPLOYMENT_DESC: $DEPLOYMENT_DESC"
+          echo "AUTHOR: $AUTHOR"
+          echo "BRANCH: $BRANCH"
+          echo "MESSAGE: $MESSAGE"
 
       - name: Skip if branch is feat/backend
         if: env.BRANCH == 'feat/backend'
@@ -40,6 +76,7 @@ jobs:
           STATUS="${{ github.event.deployment_status.state }}"
           ENVIRONMENT="${{ github.event.deployment.environment }}"
           URL="${{ github.event.deployment_status.environment_url }}"
+          WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           COLOR=65280
           EMOJI="✅"
 
@@ -48,15 +85,38 @@ jobs:
             EMOJI="❌"
           fi
 
-          echo "{
-            \"username\": \"Vercel Bot\",
-            \"embeds\": [{
-              \"title\": \"$EMOJI Deployment: $ENVIRONMENT\",
-              \"color\": $COLOR,
-              \"description\": \"**Branch:** $BRANCH\n**Commit:** ${COMMIT_SHA:0:7}\n**Author:** $AUTHOR\n**Message:** $MESSAGE\n**URL:** $URL\",
-              \"timestamp\": \"$(date --utc +%Y-%m-%dT%H:%M:%SZ)\"
-            }]
-          }" > payload.json
+          # Escape JSON special characters in variables
+          ESCAPED_BRANCH=$(echo "$BRANCH" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+          ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+          ESCAPED_MESSAGE=$(echo "$MESSAGE" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+          ESCAPED_URL=$(echo "$URL" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+          ESCAPED_WORKFLOW_URL=$(echo "$WORKFLOW_URL" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
+
+          # Create JSON using jq to ensure proper escaping
+          jq -n \
+            --arg username "Vercel Bot" \
+            --arg title "$EMOJI Deployment: $ENVIRONMENT" \
+            --argjson color "$COLOR" \
+            --arg branch "$ESCAPED_BRANCH" \
+            --arg commit "${COMMIT_SHA:0:7}" \
+            --arg author "$ESCAPED_AUTHOR" \
+            --arg message "$ESCAPED_MESSAGE" \
+            --arg url "$ESCAPED_URL" \
+            --arg workflow_url "$ESCAPED_WORKFLOW_URL" \
+            --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+            '{
+              username: $username,
+              embeds: [{
+                title: $title,
+                color: $color,
+                description: ("**Branch:** " + $branch + "\n**Commit:** " + $commit + "\n**Author:** " + $author + "\n**Message:** " + $message + "\n**URL:** " + $url + "\n[🔗 View Workflow Run](" + $workflow_url + ")"),
+                timestamp: $timestamp
+              }]
+            }' > payload.json
+
+          # Debug: show the generated JSON
+          echo "Generated JSON payload:"
+          cat payload.json
 
           curl -H "Content-Type: application/json" \
                -X POST \
