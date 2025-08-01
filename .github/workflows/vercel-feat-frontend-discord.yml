@@ -62,14 +62,20 @@ jobs:
           echo "BRANCH: $BRANCH"
           echo "MESSAGE: $MESSAGE"
 
+      - name: Skip if branch contains feat/patch or is main
+        if: contains(env.BRANCH, 'feat/patch') || env.BRANCH == 'main'
+        run: |
+          echo "Skipping workflow for branch ${{ env.BRANCH }} - feat/patch and main deployments are excluded"
+          exit 0
+
       - name: Skip if branch is not feat/frontend
-        if: env.BRANCH != 'feat/frontend'
+        if: env.BRANCH != 'feat/frontend' && !contains(env.BRANCH, 'feat/patch') && env.BRANCH != 'main'
         run: |
           echo "Skipping workflow for branch ${{ env.BRANCH }} - only feat/frontend deployments are notified"
           exit 0
 
       - name: Send to Discord
-        if: env.BRANCH == 'feat/frontend'
+        if: env.BRANCH == 'feat/frontend' && !contains(env.BRANCH, 'feat/patch') && env.BRANCH != 'main'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
