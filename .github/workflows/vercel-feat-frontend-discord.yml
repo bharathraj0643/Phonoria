@@ -62,14 +62,14 @@ jobs:
           echo "BRANCH: $BRANCH"
           echo "MESSAGE: $MESSAGE"
 
-      - name: Skip if branch is feat/backend
-        if: env.BRANCH == 'feat/backend'
+      - name: Skip if branch is not feat/frontend
+        if: env.BRANCH != 'feat/frontend'
         run: |
-          echo "Skipping workflow for branch feat/backend"
+          echo "Skipping workflow for branch ${{ env.BRANCH }} - only feat/frontend deployments are notified"
           exit 0
 
       - name: Send to Discord
-        if: env.BRANCH != 'feat/backend'
+        if: env.BRANCH == 'feat/frontend'
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
