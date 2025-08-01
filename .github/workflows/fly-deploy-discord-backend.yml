@@ -38,6 +38,8 @@ jobs:
           GITHUB_WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           STATUS="${{ job.status }}"
           DEPLOY_URL="https://api-phonoria.fly.dev/"
+          FLY_ACTIVITY_URL="https://fly.io/apps/api-phonoria/activity"
+          FLY_MONITORING_URL="https://fly.io/apps/api-phonoria/monitoring"
           
           # Process commit message - first line only, truncated to 72 chars
           COMMIT_MSG=$(echo "$RAW_COMMIT_MSG" | head -n 1 | cut -c1-72)
@@ -62,6 +64,8 @@ jobs:
             --arg message "$COMMIT_MSG" \
             --arg workflow_url "$GITHUB_WORKFLOW_URL" \
             --arg deploy_url "$DEPLOY_URL" \
+            --arg fly_activity_url "$FLY_ACTIVITY_URL" \
+            --arg fly_monitoring_url "$FLY_MONITORING_URL" \
             --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{
               username: $username,
@@ -74,7 +78,9 @@ jobs:
                   { name: "Author", value: $author, inline: true },
                   { name: "Message", value: $message },
                   { name: "Workflow", value: ("[View Run](" + $workflow_url + ")") },
-                  { name: "URL", value: $deploy_url }
+                  { name: "URL", value: $deploy_url },
+                  { name: "Fly Activity", value: ("[View Activity](" + $fly_activity_url + ")") },
+                  { name: "Fly Live Logs", value: ("[View Monitoring](" + $fly_monitoring_url + ")") }
                 ],
                 timestamp: $timestamp
               }]
