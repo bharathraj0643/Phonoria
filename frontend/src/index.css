@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+@theme{
+    --phonoria-color-violet: #674188;
+    --phonoria-color-violet-lite: #C3ACD0;
+    --phonoria-color-gold-lite: #F7EFE5;
+    --phonoria-color-cream: #FFFBF5;
+}
+
+body{
+    background-color: var(--phonoria-color-cream);
+}
