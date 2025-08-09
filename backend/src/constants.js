@@ -1,3 +1,5 @@
-export const DB_NAME = process.env.MACHINE
-  ? "phonoria-db-test"
-  : "phonoria-db-production";
+export const getDBName = () => {
+  return process.env.DB_ENV === "PROD"
+    ? "phonoria-db-production"
+    : "phonoria-db-test";
+};
