@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useState } from "react";
+import { ENV } from "./constants/env.js";
 
 function App() {
-
   return (
     <>
-      <div>app</div>
+      <div>{ENV.API_URL}</div>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
