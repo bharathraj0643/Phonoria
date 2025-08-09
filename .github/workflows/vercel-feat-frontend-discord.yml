@@ -11,267 +11,54 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for branch detection
+          fetch-depth: 0
 
       - name: Extract commit and deployment info
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           COMMIT_SHA="${{ github.event.deployment.sha }}"
-          echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_ENV
-
-          # Debug: Print all available deployment data
-          echo "=== Full Deployment Event Debug ==="
-          echo "Deployment SHA: ${{ github.event.deployment.sha }}"
-          echo "Deployment REF: ${{ github.event.deployment.ref }}"
-          echo "Deployment Environment: ${{ github.event.deployment.environment }}"
-          echo "Deployment Description: ${{ github.event.deployment.description }}"
-          echo "Deployment URL: ${{ github.event.deployment.url }}"
-          echo "Deployment Payload: ${{ toJson(github.event.deployment.payload) }}"
-          echo "Deployment Status State: ${{ github.event.deployment_status.state }}"
-          echo "Deployment Status Environment URL: ${{ github.event.deployment_status.environment_url }}"
-          echo "Deployment Status Description: ${{ github.event.deployment_status.description }}"
-          echo "GitHub REF: ${{ github.ref }}"
-          echo "GitHub REF Name: ${{ github.ref_name }}"
-          echo "GitHub Head REF: ${{ github.head_ref }}"
-          echo "GitHub Base REF: ${{ github.base_ref }}"
-          echo "=== End Debug ==="
-          
-          # Initialize branch variable
-          BRANCH=""
-          
-          # Method 1: Check if github.ref_name is available (most reliable for current workflow)
-          if [ -n "${{ github.ref_name }}" ] && [ "${{ github.ref_name }}" != "main" ]; then
-            BRANCH="${{ github.ref_name }}"
-            echo "Branch from github.ref_name: $BRANCH"
-          fi
-          
-          # Method 2: Try to extract from deployment ref if it's a proper branch ref
-          if [ -z "$BRANCH" ]; then
-            DEPLOYMENT_REF="${{ github.event.deployment.ref }}"
-            if [[ "$DEPLOYMENT_REF" == refs/heads/* ]]; then
-              BRANCH=${DEPLOYMENT_REF#refs/heads/}
-              echo "Branch from deployment ref: $BRANCH"
-            fi
-          fi
-          
-          # Method 3: Check deployment environment for branch hints
-          if [ -z "$BRANCH" ]; then
-            DEPLOYMENT_ENV="${{ github.event.deployment.environment }}"
-            DEPLOYMENT_URL="${{ github.event.deployment_status.environment_url }}"
-            
-            # Look for branch patterns in the deployment URL (Vercel pattern)
-            if [[ "$DEPLOYMENT_URL" == *"feat-frontend"* ]]; then
-              BRANCH="feat/frontend"
-              echo "Branch detected from URL pattern (feat/frontend): $BRANCH"
-            elif [[ "$DEPLOYMENT_URL" == *"feat-patch"* ]]; then
-              BRANCH="feat/patch"
-              echo "Branch detected from URL pattern (feat/patch): $BRANCH"
-            elif [[ "$DEPLOYMENT_URL" == *"main"* ]] || [[ "$DEPLOYMENT_ENV" == "Production"* ]]; then
-              BRANCH="main"
-              echo "Branch detected from URL/env pattern (main): $BRANCH"
-            fi
-          fi
-          
-          # Method 4: Use git to find which branches contain this commit
-          if [ -z "$BRANCH" ]; then
-            echo "Trying git branch detection..."
-            
-            # Fetch the specific commit to ensure we have it
-            git fetch origin "$COMMIT_SHA" || echo "Could not fetch specific commit"
-            
-            # Find branches containing this commit locally
-            LOCAL_BRANCHES=$(git branch -a --contains "$COMMIT_SHA" 2>/dev/null | sed 's/^[ *]*//' | sed 's/remotes\/origin\///' | grep -v HEAD | sort -u || echo "")
-            echo "Local branches containing commit: $LOCAL_BRANCHES"
-            
-            # Priority order: main > feat/patch > feat/frontend
-            if echo "$LOCAL_BRANCHES" | grep -qx "main"; then
-              BRANCH="main"
-              echo "Branch selected from git: main (priority)"
-            elif echo "$LOCAL_BRANCHES" | grep -qx "feat/patch"; then
-              BRANCH="feat/patch"  
-              echo "Branch selected from git: feat/patch (priority)"
-            elif echo "$LOCAL_BRANCHES" | grep -qx "feat/frontend"; then
-              BRANCH="feat/frontend"
-              echo "Branch selected from git: feat/frontend"
-            else
-              # Take the first non-HEAD branch
-              BRANCH=$(echo "$LOCAL_BRANCHES" | grep -v "HEAD" | head -n1)
-              echo "Branch selected from git: $BRANCH (first available)"
-            fi
-          fi
-          
-          # Method 5: Try the GitHub API as fallback
-          if [ -z "$BRANCH" ] || [ "$BRANCH" = "" ]; then
-            echo "Trying GitHub API for branch detection..."
-            
-            # Get all branches that contain this commit
-            API_BRANCHES=$(gh api "repos/${{ github.repository }}/commits/${COMMIT_SHA}/branches-where-head" --jq -r '.[].name' 2>/dev/null || echo "")
-            echo "API branches containing commit: $API_BRANCHES"
-            
-            if [ -n "$API_BRANCHES" ]; then
-              # Apply same priority logic
-              if echo "$API_BRANCHES" | grep -qx "main"; then
-                BRANCH="main"
-                echo "Branch selected from API: main (priority)"
-              elif echo "$API_BRANCHES" | grep -qx "feat/patch"; then
-                BRANCH="feat/patch"
-                echo "Branch selected from API: feat/patch (priority)"
-              elif echo "$API_BRANCHES" | grep -qx "feat/frontend"; then
-                BRANCH="feat/frontend"
-                echo "Branch selected from API: feat/frontend"
-              else
-                BRANCH=$(echo "$API_BRANCHES" | head -n1)
-                echo "Branch selected from API: $BRANCH (first available)"
-              fi
-            fi
-          fi
-          
-          # Method 6: Final fallback - analyze deployment URL more thoroughly
-          if [ -z "$BRANCH" ] || [ "$BRANCH" = "" ]; then
-            echo "Using deployment URL analysis as final fallback..."
-            DEPLOYMENT_URL="${{ github.event.deployment_status.environment_url }}"
-            
-            # Extract subdomain from Vercel URL (e.g., project-name-git-branch-username.vercel.app)
-            if [[ "$DEPLOYMENT_URL" =~ https://[^-]+-git-([^-]+)-[^.]+\.vercel\.app ]]; then
-              URL_BRANCH="${BASH_REMATCH[1]}"
-              # Convert URL-safe branch name back to actual branch name
-              case "$URL_BRANCH" in
-                "feat-frontend"|"featfrontend")
-                  BRANCH="feat/frontend"
-                  ;;
-                "feat-patch"|"featpatch")
-                  BRANCH="feat/patch"
-                  ;;
-                "main")
-                  BRANCH="main"
-                  ;;
-                *)
-                  BRANCH="$URL_BRANCH"
-                  ;;
-              esac
-              echo "Branch extracted from Vercel URL pattern: $BRANCH"
-            else
-              # If it's a production deployment without branch in URL, assume main
-              if [[ "$DEPLOYMENT_URL" != *"git"* ]] && [[ "${{ github.event.deployment.environment }}" == "Production" ]]; then
-                BRANCH="main"
-                echo "Production deployment without branch info, assuming main"
-              else
-                BRANCH="unknown"
-                echo "Could not determine branch from any method"
-              fi
-            fi
-          fi
-          
-          # Get commit info
-          if git show --format="%an" -s "$COMMIT_SHA" >/dev/null 2>&1; then
-            AUTHOR=$(git show --format="%an" -s "$COMMIT_SHA")
-            RAW_MESSAGE=$(git show --format="%s" -s "$COMMIT_SHA")
-          else
-            echo "Git commands failed, trying API..."
-            AUTHOR=$(gh api "repos/${{ github.repository }}/commits/${COMMIT_SHA}" --jq -r '.commit.author.name // "Unknown"' 2>/dev/null || echo "Unknown")
-            RAW_MESSAGE=$(gh api "repos/${{ github.repository }}/commits/${COMMIT_SHA}" --jq -r '.commit.message // "No message"' 2>/dev/null || echo "No message")
-          fi
-          
-          # Process the message - get first line only and truncate
+          BRANCH="${{ github.ref_name }}"
+          AUTHOR=$(git show --format="%an" -s "$COMMIT_SHA" 2>/dev/null || echo "Unknown")
+          RAW_MESSAGE=$(git show --format="%s" -s "$COMMIT_SHA" 2>/dev/null || echo "No message")
           MESSAGE=$(echo "$RAW_MESSAGE" | head -n 1 | cut -c1-72)
-          
-          # Sanitize values
-          AUTHOR=$(echo "$AUTHOR" | tr -d '\n\r' | cut -c1-50)
-          MESSAGE=$(echo "$MESSAGE" | tr -d '\n\r')
-          BRANCH=$(echo "$BRANCH" | tr -d '\n\r' | cut -c1-50)
 
-          echo "AUTHOR=$AUTHOR" >> $GITHUB_ENV
+          echo "COMMIT_SHA=$COMMIT_SHA" >> $GITHUB_ENV
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-          echo "MESSAGE<<EOF" >> $GITHUB_ENV
-          echo "$MESSAGE" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-          
-          # Final debug output
-          echo "=== Final Detection Results ==="
-          echo "COMMIT_SHA: $COMMIT_SHA"
-          echo "AUTHOR: $AUTHOR"
-          echo "BRANCH: $BRANCH"
-          echo "MESSAGE: $MESSAGE"
-          echo "=== End Results ==="
+          echo "AUTHOR=$AUTHOR" >> $GITHUB_ENV
+          echo "MESSAGE=$MESSAGE" >> $GITHUB_ENV
 
       - name: Send to Discord
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          DEPLOYMENT_ENV: ${{ github.event.deployment.environment }}
-        # Only send notifications for known branches, or if we want to debug unknown branches
-        if: env.BRANCH == 'feat/frontend' || env.BRANCH == 'feat/patch' || env.BRANCH == 'main' || env.BRANCH == 'unknown'
         run: |
           STATUS="${{ github.event.deployment_status.state }}"
           ENVIRONMENT="${{ github.event.deployment.environment }}"
           URL="${{ github.event.deployment_status.environment_url }}"
           WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
           COLOR=65280
           EMOJI="✅"
-
           if [ "$STATUS" != "success" ]; then
             COLOR=16711680
             EMOJI="❌"
           fi
-          
-          # Add warning for unknown branches
-          BRANCH_DISPLAY="$BRANCH"
-          if [ "$BRANCH" = "unknown" ]; then
-            BRANCH_DISPLAY="⚠️ $BRANCH (detection failed)"
-            COLOR=16776960  # Yellow color for warning
-            EMOJI="⚠️"
-          fi
 
-          # Escape JSON special characters in variables
-          ESCAPED_BRANCH=$(echo "$BRANCH_DISPLAY" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_MESSAGE=$(echo "$MESSAGE" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_URL=$(echo "$URL" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_WORKFLOW_URL=$(echo "$WORKFLOW_URL" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-
-          # Create JSON using jq to ensure proper escaping
           jq -n \
             --arg username "Vercel Bot" \
             --arg title "$EMOJI Deployment: $ENVIRONMENT" \
             --argjson color "$COLOR" \
-            --arg branch "$ESCAPED_BRANCH" \
-            --arg commit "${COMMIT_SHA:0:7}" \
-            --arg author "$ESCAPED_AUTHOR" \
-            --arg message "$ESCAPED_MESSAGE" \
-            --arg url "$ESCAPED_URL" \
-            --arg workflow_url "$ESCAPED_WORKFLOW_URL" \
-            --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg description "**Branch:** ${BRANCH}\ | **Commit:** [${COMMIT_SHA:0:7}](https://github.com/${{ github.repository }}/commit/${COMMIT_SHA}) | **Author:** ${AUTHOR}\n**Message:** ${MESSAGE}\n**URL:** ${URL} | [Workflow](${WORKFLOW_URL})" \
+            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             '{
               username: $username,
               embeds: [{
                 title: $title,
                 color: $color,
-                description: ("**Branch:** " + $branch + "\n**Commit:** " + $commit + "\n**Author:** " + $author + "\n**Message:** " + $message + "\n**URL:** " + $url + "\n[🔗 View Workflow Run](" + $workflow_url + ")"),
+                description: $description,
                 timestamp: $timestamp
               }]
             }' > payload.json
 
-          # Debug: show the generated JSON
-          echo "Generated JSON payload:"
-          cat payload.json
-
-          # Send to Discord with verbose output and response capture
-          echo "Sending to Discord webhook..."
-          RESPONSE=$(curl -s -w "\nHTTP_CODE:%{http_code}\nRESPONSE_TIME:%{time_total}" \
-               -H "Content-Type: application/json" \
+          curl -H "Content-Type: application/json" \
                -X POST \
                -d @payload.json \
-               "$DISCORD_WEBHOOK_URL")
-          
-          echo "Discord API Response:"
-          echo "$RESPONSE"
-          
-          # Extract HTTP status code
-          HTTP_CODE=$(echo "$RESPONSE" | grep "HTTP_CODE:" | cut -d: -f2)
-          
-          if [ "$HTTP_CODE" = "204" ] || [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Successfully sent to Discord (HTTP $HTTP_CODE)"
-          else
-            echo "❌ Failed to send to Discord (HTTP $HTTP_CODE)"
-            echo "Full response: $RESPONSE"
-          fi
+               "$DISCORD_WEBHOOK_URL"
