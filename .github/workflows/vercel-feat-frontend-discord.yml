@@ -222,32 +222,22 @@ jobs:
             EMOJI="⚠️"
           fi
 
-          # Escape JSON special characters in variables
-          ESCAPED_BRANCH=$(echo "$BRANCH_DISPLAY" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_AUTHOR=$(echo "$AUTHOR" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_MESSAGE=$(echo "$MESSAGE" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_URL=$(echo "$URL" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-          ESCAPED_WORKFLOW_URL=$(echo "$WORKFLOW_URL" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g')
-
-          # Create JSON using jq to ensure proper escaping
+          # Create compact JSON message
           jq -n \
             --arg username "Vercel Bot" \
-            --arg title "$EMOJI Deployment: $ENVIRONMENT" \
             --argjson color "$COLOR" \
-            --arg branch "$ESCAPED_BRANCH" \
+            --arg branch "$BRANCH_DISPLAY" \
             --arg commit "${COMMIT_SHA:0:7}" \
-            --arg author "$ESCAPED_AUTHOR" \
-            --arg message "$ESCAPED_MESSAGE" \
-            --arg url "$ESCAPED_URL" \
-            --arg workflow_url "$ESCAPED_WORKFLOW_URL" \
-            --arg timestamp "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg author "$AUTHOR" \
+            --arg message "$MESSAGE" \
+            --arg url "$URL" \
+            --arg workflow_url "$WORKFLOW_URL" \
+            --arg environment "$ENVIRONMENT" \
             '{
               username: $username,
               embeds: [{
-                title: $title,
                 color: $color,
-                description: ("**Branch:** " + $branch + "\n**Commit:** " + $commit + "\n**Author:** " + $author + "\n**Message:** " + $message + "\n**URL:** " + $url + "\n[🔗 View Workflow Run](" + $workflow_url + ")"),
-                timestamp: $timestamp
+                description: ("**" + $branch + "** `" + $commit + "` by **" + $author + "**\n" + $message + "\n\n🚀 [" + $environment + "](" + $url + ") • 🔗 [Workflow](" + $workflow_url + ")")
               }]
             }' > payload.json
 
