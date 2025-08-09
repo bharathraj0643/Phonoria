@@ -1,30 +1,25 @@
-name: Fly Deploy (backend)
-
+name: Fly Deploy (backend-production)
 on:
   push:
     branches:
-      - feat/backend
-
+      - main
+      - 'main/*'
 jobs:
   deploy:
     name: Deploy app
     runs-on: ubuntu-latest
     concurrency: deploy-group
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
       - name: Set up Fly CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
-
       - name: Deploy to Fly.io
         id: fly_deploy
         working-directory: ./backend
-        run: flyctl deploy --remote-only
+        run: flyctl deploy --config fly-deploy/api-production/fly.toml --remote-only
         env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
-
+          FLY_API_TOKEN: ${{ secrets.FLY_API_PROD_TOKEN }}
       - name: Send Discord Notification
         if: always()
         env:
@@ -53,11 +48,9 @@ jobs:
             EMOJI="❌"
           fi
           
-          # Create JSON using jq for proper escaping
+          # Create compact JSON message
           jq -n \
             --arg username "Fly.io Bot" \
-            --arg title "$EMOJI Fly.io Deployment - $STATUS" \
-            --argjson color "$COLOR" \
             --arg branch "$BRANCH_NAME" \
             --arg commit "${COMMIT_SHA:0:7}" \
             --arg author "$COMMIT_AUTHOR" \
@@ -66,30 +59,18 @@ jobs:
             --arg deploy_url "$DEPLOY_URL" \
             --arg fly_activity_url "$FLY_ACTIVITY_URL" \
             --arg fly_monitoring_url "$FLY_MONITORING_URL" \
-            --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --argjson color "$COLOR" \
             '{
               username: $username,
               embeds: [{
-                title: $title,
                 color: $color,
-                fields: [
-                  { name: "Branch", value: $branch, inline: true },
-                  { name: "Commit", value: $commit, inline: true },
-                  { name: "Author", value: $author, inline: true },
-                  { name: "Message", value: $message },
-                  { name: "Workflow", value: ("[View Run](" + $workflow_url + ")") },
-                  { name: "URL", value: $deploy_url },
-                  { name: "Fly Activity", value: ("[View Activity](" + $fly_activity_url + ")") },
-                  { name: "Fly Live Logs", value: ("[View Monitoring](" + $fly_monitoring_url + ")") }
-                ],
-                timestamp: $timestamp
+                description: ("**" + $branch + "** `" + $commit + "` by **" + $author + "**\n" + $message + "\n\n🚀 [App](" + $deploy_url + ") • 📊 [Activity](" + $fly_activity_url + ") • 📈 [Monitoring](" + $fly_monitoring_url + ") • 🔗 [Workflow](" + $workflow_url + ")")
               }]
             }' > payload.json
-
+          
           # Debug: show the generated JSON
           echo "Generated JSON payload:"
           cat payload.json
-
           curl -H "Content-Type: application/json" \
                -X POST \
                -d @payload.json \
