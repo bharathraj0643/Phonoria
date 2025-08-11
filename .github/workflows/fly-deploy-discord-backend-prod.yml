@@ -1,0 +1,87 @@
+name: Fly Deploy (backend-production)
+on:
+  push:
+    branches:
+      - main
+      - 'main/*'
+jobs:
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    concurrency: deploy-group
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy to Fly.io
+        id: fly_deploy
+        working-directory: ./backend
+        run: flyctl deploy --config fly-deploy/api-production/fly.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_PROD_TOKEN }}
+      - name: Send Discord Notification
+        if: always()
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          # Extract commit info
+          COMMIT_SHA="${{ github.sha }}"
+          RAW_COMMIT_MSG="${{ github.event.head_commit.message }}"
+          COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
+          BRANCH_NAME="${{ github.ref_name }}"
+          GITHUB_WORKFLOW_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          STATUS="${{ job.status }}"
+          DEPLOY_URL="https://api-phonoria.fly.dev/"
+          FLY_ACTIVITY_URL="https://fly.io/apps/api-phonoria/activity"
+          FLY_MONITORING_URL="https://fly.io/apps/api-phonoria/monitoring"
+          
+          # Process commit message - first line only, truncated to 72 chars
+          COMMIT_MSG=$(echo "$RAW_COMMIT_MSG" | head -n 1 | cut -c1-72)
+          
+          # Set color and emoji based on status
+          if [ "$STATUS" == "success" ]; then
+            COLOR=3066993
+            EMOJI="✅"
+            STATUS_TEXT="Deployment Successful"
+          else
+            COLOR=15158332
+            EMOJI="❌"
+            STATUS_TEXT="Deployment Failed"
+          fi
+          
+          # Set avatar URL
+          AVATAR_URL="https://avatars.githubusercontent.com/u/22525303?s=200&v=4"
+          
+          # Create compact JSON message with emoji and avatar
+          jq -n \
+            --arg username "Fly.io Bot" \
+            --arg avatar_url "$AVATAR_URL" \
+            --arg branch "$BRANCH_NAME" \
+            --arg commit "${COMMIT_SHA:0:7}" \
+            --arg author "$COMMIT_AUTHOR" \
+            --arg message "$COMMIT_MSG" \
+            --arg workflow_url "$GITHUB_WORKFLOW_URL" \
+            --arg deploy_url "$DEPLOY_URL" \
+            --arg fly_activity_url "$FLY_ACTIVITY_URL" \
+            --arg fly_monitoring_url "$FLY_MONITORING_URL" \
+            --arg emoji "$EMOJI" \
+            --arg status_text "$STATUS_TEXT" \
+            --argjson color "$COLOR" \
+            '{
+              username: $username,
+              avatar_url: $avatar_url,
+              embeds: [{
+                color: $color,
+                title: ($emoji + " " + $status_text),
+                description: ("**" + $branch + "** `" + $commit + "` by **" + $author + "**\n" + $message + "\n\n🚀 [App](" + $deploy_url + ") • 📊 [Activity](" + $fly_activity_url + ") • 📈 [Monitoring](" + $fly_monitoring_url + ") • 🔗 [Workflow](" + $workflow_url + ")")
+              }]
+            }' > payload.json
+          
+          # Debug: show the generated JSON
+          echo "Generated JSON payload:"
+          cat payload.json
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d @payload.json \
+               "$DISCORD_WEBHOOK"
