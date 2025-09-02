@@ -19,6 +19,13 @@ app.use(
 
 // import routes
 import healthCheckRouter from "./routes/healthCheck.routes.js";
+import authRouter from "./routes/auth.routes.js";
+
 app.use("/api/healthcheck", healthCheckRouter);
+app.use("/api/auth", authRouter);
+
+app.get("/", (req, res) => {
+  res.send("Welcome to Phonoria REST API!");
+});
 
 export { app };
